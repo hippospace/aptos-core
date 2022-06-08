@@ -22,6 +22,7 @@ import {
 import { bcsSerializeUint64, bcsToBytes } from './transaction_builder/bcs';
 import { AuthenticationKey } from './transaction_builder/aptos_types/authentication_key';
 import { SigningMessage, TransactionBuilderMultiEd25519 } from './transaction_builder';
+import { TransactionPayload, WriteResource } from './api/data-contracts';
 
 test('gets genesis account', async () => {
   const client = new AptosClient(NODE_URL);
@@ -141,6 +142,7 @@ test(
       1000n,
       1n,
       BigInt(Math.floor(Date.now() / 1000) + 10),
+      false,
       new ChainId(chainId),
     );
 
@@ -212,6 +214,7 @@ test(
       1000n,
       1n,
       BigInt(Math.floor(Date.now() / 1000) + 10),
+      false,
       new ChainId(chainId),
     );
 
@@ -236,6 +239,59 @@ test(
     resources = await client.getAccountResources(account4.address());
     accountResource = resources.find((r) => r.type === '0x1::Coin::CoinStore<0x1::TestCoin::TestCoin>');
     expect((accountResource.data as any).coin.value).toBe('123');
+  },
+  30 * 1000,
+);
+
+test(
+  'Transaction simulation',
+  async () => {
+    const client = new AptosClient(NODE_URL);
+    const faucetClient = new FaucetClient(NODE_URL, FAUCET_URL);
+
+    const account1 = new AptosAccount();
+    const account2 = new AptosAccount();
+    const txns1 = await faucetClient.fundAccount(account1.address(), 5000);
+    const txns2 = await faucetClient.fundAccount(account2.address(), 1000);
+    const tx1 = await client.getTransaction(txns1[1]);
+    const tx2 = await client.getTransaction(txns2[1]);
+    expect(tx1.type).toBe('user_transaction');
+    expect(tx2.type).toBe('user_transaction');
+    const checkTestCoin = async () => {
+      let resources1 = await client.getAccountResources(account1.address());
+      let resources2 = await client.getAccountResources(account2.address());
+      let account1Resource = resources1.find((r) => r.type === '0x1::Coin::CoinStore<0x1::TestCoin::TestCoin>');
+      let account2Resource = resources2.find((r) => r.type === '0x1::Coin::CoinStore<0x1::TestCoin::TestCoin>');
+      expect((account1Resource.data as { coin: { value: string } }).coin.value).toBe('5000');
+      expect((account2Resource.data as { coin: { value: string } }).coin.value).toBe('1000');
+    };
+    await checkTestCoin();
+
+    const payload: TransactionPayload = {
+      type: 'script_function_payload',
+      function: '0x1::Coin::transfer',
+      type_arguments: ['0x1::TestCoin::TestCoin'],
+      arguments: [account2.address().hex(), '1000'],
+    };
+    const txnRequest = await client.generateSimulation(account1.address(), payload);
+    const signedTxn = await client.signTransaction(account1, txnRequest);
+    const transactionRes = await client.simulateTransaction(signedTxn);
+    expect(parseInt(transactionRes[0].gas_used) > 0);
+    expect(transactionRes[0].success);
+    const account2TestCoin = transactionRes[0].changes.filter((change) => {
+      if (change.type !== 'write_resource') {
+        return false;
+      }
+      const write = change as WriteResource;
+
+      return (
+        write.address === account2.address().hex() &&
+        write.data.type === '0x1::Coin::CoinStore<0x1::TestCoin::TestCoin>' &&
+        (write.data.data as { coin: { value: string } }).coin.value === '2000'
+      );
+    });
+    expect(account2TestCoin).toHaveLength(1);
+    await checkTestCoin();
   },
   30 * 1000,
 );

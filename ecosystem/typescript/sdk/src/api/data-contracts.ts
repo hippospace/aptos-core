@@ -456,6 +456,7 @@ export interface UserTransactionRequest {
    *
    */
   expiration_timestamp_secs: TimestampSec;
+  is_simulation: boolean;
   payload: TransactionPayload;
 }
 

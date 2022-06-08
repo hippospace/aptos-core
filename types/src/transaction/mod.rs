@@ -87,6 +87,9 @@ pub struct RawTransaction {
     /// in the future to indicate that a transaction does not expire.
     expiration_timestamp_secs: u64,
 
+    /// if this is a simulation request (thus should not go through mempool/consensus)
+    is_simulation: bool,
+
     /// Chain ID of the Aptos network this transaction is intended for.
     chain_id: ChainId,
 }
@@ -112,6 +115,32 @@ impl RawTransaction {
             max_gas_amount,
             gas_unit_price,
             expiration_timestamp_secs,
+            is_simulation: false,
+            chain_id,
+        }
+    }
+
+    /// Create a new `RawTransaction` with a payload.
+    ///
+    /// It can be either to publish a module, to execute a script, or to issue a writeset
+    /// transaction.
+    pub fn new_simulation(
+        sender: AccountAddress,
+        sequence_number: u64,
+        payload: TransactionPayload,
+        max_gas_amount: u64,
+        gas_unit_price: u64,
+        expiration_timestamp_secs: u64,
+        chain_id: ChainId,
+    ) -> Self {
+        RawTransaction {
+            sender,
+            sequence_number,
+            payload,
+            max_gas_amount,
+            gas_unit_price,
+            expiration_timestamp_secs,
+            is_simulation: true,
             chain_id,
         }
     }
@@ -135,6 +164,7 @@ impl RawTransaction {
             max_gas_amount,
             gas_unit_price,
             expiration_timestamp_secs,
+            is_simulation: false,
             chain_id,
         }
     }
@@ -158,6 +188,7 @@ impl RawTransaction {
             max_gas_amount,
             gas_unit_price,
             expiration_timestamp_secs,
+            is_simulation: false,
             chain_id,
         }
     }
@@ -182,6 +213,7 @@ impl RawTransaction {
             max_gas_amount,
             gas_unit_price,
             expiration_timestamp_secs,
+            is_simulation: false,
             chain_id,
         }
     }
@@ -206,6 +238,7 @@ impl RawTransaction {
             max_gas_amount,
             gas_unit_price,
             expiration_timestamp_secs,
+            is_simulation: false,
             chain_id,
         }
     }
@@ -239,6 +272,7 @@ impl RawTransaction {
             gas_unit_price: 0,
             // Write-set transactions are special and important and shouldn't expire.
             expiration_timestamp_secs: u64::max_value(),
+            is_simulation: false,
             chain_id,
         }
     }
@@ -262,6 +296,7 @@ impl RawTransaction {
             gas_unit_price: 0,
             // Write-set transactions are special and important and shouldn't expire.
             expiration_timestamp_secs: u64::max_value(),
+            is_simulation: false,
             chain_id,
         }
     }
@@ -390,6 +425,10 @@ impl RawTransaction {
     /// Return the signing message for creating transaction signature.
     pub fn signing_message(&self) -> Vec<u8> {
         signing_message(self)
+    }
+
+    pub fn is_simulation(&self) -> bool {
+        self.is_simulation
     }
 }
 
@@ -608,6 +647,10 @@ impl SignedTransaction {
 
     pub fn expiration_timestamp_secs(&self) -> u64 {
         self.raw_txn.expiration_timestamp_secs
+    }
+
+    pub fn is_simulation(&self) -> bool {
+        self.raw_txn.is_simulation
     }
 
     pub fn raw_txn_bytes_len(&self) -> usize {

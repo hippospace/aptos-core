@@ -33,6 +33,7 @@ export class RawTransaction {
    *   than this gas or the transaction will be discarded during validation.
    * @param gas_unit_price Price to be paid per gas unit.
    * @param expiration_timestamp_secs The blockchain timestamp at which the blockchain would discard this transaction.
+   * @param is_simulation If this is a request to simulate a transaction instead of sending it to mempool
    * @param chain_id The chain ID of the blockchain that this transaction is intended to be run on.
    */
   constructor(
@@ -42,6 +43,7 @@ export class RawTransaction {
     public readonly max_gas_amount: Uint64,
     public readonly gas_unit_price: Uint64,
     public readonly expiration_timestamp_secs: Uint64,
+    public readonly is_simulation: boolean,
     public readonly chain_id: ChainId,
   ) {}
 
@@ -52,6 +54,7 @@ export class RawTransaction {
     serializer.serializeU64(this.max_gas_amount);
     serializer.serializeU64(this.gas_unit_price);
     serializer.serializeU64(this.expiration_timestamp_secs);
+    serializer.serializeBool(this.is_simulation);
     this.chain_id.serialize(serializer);
   }
 
@@ -62,6 +65,7 @@ export class RawTransaction {
     const max_gas_amount = deserializer.deserializeU64();
     const gas_unit_price = deserializer.deserializeU64();
     const expiration_timestamp_secs = deserializer.deserializeU64();
+    const is_simulation = deserializer.deserializeBool();
     const chain_id = ChainId.deserialize(deserializer);
     return new RawTransaction(
       sender,
@@ -70,6 +74,7 @@ export class RawTransaction {
       max_gas_amount,
       gas_unit_price,
       expiration_timestamp_secs,
+      is_simulation,
       chain_id,
     );
   }

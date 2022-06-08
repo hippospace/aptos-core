@@ -166,9 +166,18 @@ export class AptosClient {
       gas_currency_code: 'XUS',
       // Unix timestamp, in seconds + 10 seconds
       expiration_timestamp_secs: (Math.floor(Date.now() / 1000) + 10).toString(),
+      is_simulation: false,
       payload,
       ...(options || {}),
     };
+  }
+
+  async generateSimulation(
+    sender: MaybeHexString,
+    payload: Types.TransactionPayload,
+    options?: Partial<Types.UserTransactionRequest>,
+  ) {
+    return this.generateTransaction(sender, payload, { is_simulation: true, ...(options || {}) });
   }
 
   /** Converts a transaction request by `generate_transaction` into it's binary hex BCS representation, ready for
@@ -226,6 +235,13 @@ export class AptosClient {
   async submitTransaction(signedTxnRequest: Types.SubmitTransactionRequest): Promise<Types.PendingTransaction> {
     const response = await this.transactions.submitTransaction(signedTxnRequest);
     raiseForStatus(202, response, signedTxnRequest);
+    return response.data;
+  }
+
+  /** Submits a signed transaction to the transaction simulation endpoint that takes JSON payload. */
+  async simulateTransaction(signedTxnRequest: Types.SubmitTransactionRequest): Promise<Types.OnChainTransaction[]> {
+    const response = await this.transactions.simulateTransaction(signedTxnRequest);
+    raiseForStatus(200, response, signedTxnRequest);
     return response.data;
   }
 

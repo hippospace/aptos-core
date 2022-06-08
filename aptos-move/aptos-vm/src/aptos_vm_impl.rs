@@ -45,6 +45,7 @@ use std::sync::Arc;
 /// A wrapper to make VMRuntime standalone and thread safe.
 pub struct AptosVMImpl {
     move_vm: Arc<MoveVmExt>,
+    is_simulation: bool,
     on_chain_config: Option<VMConfig>,
     version: Option<Version>,
     publishing_option: Option<VMPublishingOption>,
@@ -58,6 +59,23 @@ impl AptosVMImpl {
             .expect("should be able to create Move VM; check if there are duplicated natives");
         let mut vm = Self {
             move_vm: Arc::new(inner),
+            is_simulation: false,
+            on_chain_config: None,
+            version: None,
+            publishing_option: None,
+            chain_account_info: None,
+        };
+        vm.load_configs_impl(&RemoteStorage::new(state));
+        vm.chain_account_info = Self::get_chain_specific_account_info(&RemoteStorage::new(state));
+        vm
+    }
+
+    pub fn new_simulation<S: StateView>(state: &S) -> Self {
+        let inner = MoveVmExt::new()
+            .expect("should be able to create Move VM; check if there are duplicated natives");
+        let mut vm = Self {
+            move_vm: Arc::new(inner),
+            is_simulation: true,
             on_chain_config: None,
             version: None,
             publishing_option: None,
@@ -77,6 +95,7 @@ impl AptosVMImpl {
             .expect("should be able to create Move VM; check if there are duplicated natives");
         Self {
             move_vm: Arc::new(inner),
+            is_simulation: false,
             on_chain_config: Some(on_chain_config),
             version: Some(version),
             publishing_option: Some(publishing_option),
@@ -148,6 +167,10 @@ impl AptosVMImpl {
             error!("VM Startup Failed. Version Not Found");
             VMStatus::Error(StatusCode::VM_STARTUP_FAILURE)
         })
+    }
+
+    pub fn is_simulation(&self) -> bool {
+        self.is_simulation
     }
 
     pub fn check_gas(

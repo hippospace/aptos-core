@@ -1,6 +1,7 @@
 // Copyright (c) Aptos
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::data_cache::IntoMoveResolver;
 use crate::{
     adapter_common,
     adapter_common::{
@@ -70,6 +71,10 @@ pub struct AptosVM(pub(crate) AptosVMImpl);
 impl AptosVM {
     pub fn new<S: StateView>(state: &S) -> Self {
         Self(AptosVMImpl::new(state))
+    }
+
+    pub fn new_simulation<S: StateView>(state: &S) -> Self {
+        Self(AptosVMImpl::new_simulation(state))
     }
 
     pub fn new_for_validation<S: StateView>(state: &S) -> Self {
@@ -454,6 +459,11 @@ impl AptosVM {
             return discard_error_vm_status(err);
         };
 
+        // make sure is_simulation is right
+        if self.0.is_simulation() != txn.is_simulation() {
+            return discard_error_vm_status(VMStatus::Error(StatusCode::UNEXPECTED_SIGNATURE_TYPE));
+        }
+
         let gas_schedule = unwrap_or_discard!(self.0.get_gas_schedule(log_context));
         let txn_data = TransactionMetadata::new(txn);
         let mut gas_status = GasStatus::new(gas_schedule, txn_data.max_gas_amount());
@@ -802,6 +812,21 @@ impl AptosVM {
         // Record the histogram count for transactions per block.
         BLOCK_TRANSACTION_COUNT.observe(count as f64);
         Ok(res)
+    }
+
+    /// transaction simulation
+    pub fn simulate_transaction(
+        txn: &SignedTransaction,
+        state_view: &impl StateView,
+    ) -> Result<(VMStatus, TransactionOutput)> {
+        let vm = AptosVM::new_simulation(state_view);
+        let log_context = AdapterLogSchema::new(state_view.id(), 0);
+        let result = vm.execute_user_transaction(
+            &state_view.into_move_resolver(),
+            &txn.clone().check_signature()?,
+            &log_context,
+        );
+        Ok(result)
     }
 }
 

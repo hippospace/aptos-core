@@ -322,18 +322,31 @@ impl<'a, R: MoveResolverExt + ?Sized> MoveConverter<'a, R> {
             max_gas_amount,
             gas_unit_price,
             expiration_timestamp_secs,
+            is_simulation,
             payload,
             signature: _,
         } = txn;
-        Ok(RawTransaction::new(
-            sender.into(),
-            sequence_number.into(),
-            self.try_into_aptos_core_transaction_payload(payload)?,
-            max_gas_amount.into(),
-            gas_unit_price.into(),
-            expiration_timestamp_secs.into(),
-            chain_id,
-        ))
+        if is_simulation {
+            Ok(RawTransaction::new_simulation(
+                sender.into(),
+                sequence_number.into(),
+                self.try_into_aptos_core_transaction_payload(payload)?,
+                max_gas_amount.into(),
+                gas_unit_price.into(),
+                expiration_timestamp_secs.into(),
+                chain_id,
+            ))
+        } else {
+            Ok(RawTransaction::new(
+                sender.into(),
+                sequence_number.into(),
+                self.try_into_aptos_core_transaction_payload(payload)?,
+                max_gas_amount.into(),
+                gas_unit_price.into(),
+                expiration_timestamp_secs.into(),
+                chain_id,
+            ))
+        }
     }
 
     pub fn try_into_aptos_core_transaction_payload(

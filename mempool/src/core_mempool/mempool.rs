@@ -158,6 +158,13 @@ impl Mempool {
             ));
         }
 
+        // don't accept simulation
+        if txn.is_simulation() {
+            return MempoolStatus::new(MempoolStatusCode::VmError).with_message(
+                "Mempool does not accept transaction simulations".into()
+            );
+        }
+
         let expiration_time =
             aptos_infallible::duration_since_epoch() + self.system_transaction_timeout;
         if timeline_state != TimelineState::NonQualified {
