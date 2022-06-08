@@ -232,6 +232,13 @@ export class AptosClient {
     return response.data;
   }
 
+  /** Submits a signed transaction to the transaction simulation endpoint that takes JSON payload. */
+  async simulateTransaction(signedTxnRequest: Types.SubmitTransactionRequest): Promise<Types.OnChainTransaction[]> {
+    const response = await this.transactions.simulateTransaction(signedTxnRequest);
+    raiseForStatus(200, response, signedTxnRequest);
+    return response.data;
+  }
+
   /** Submits a signed transaction to the the endpoint that takes BCS payload. */
   async submitSignedBCSTransaction(signedTxn: Uint8Array): Promise<Types.PendingTransaction> {
     // Need to construct a customized post request for transactions in BCS payload
